@@ -1,0 +1,20 @@
+{
+  "name": "umls_html5",
+  "version": "0.1.0",
+  "description": "UMLS project ported to HTML5",
+  "main": "index.html",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mmiszy/umls.git"
+  },
+  "keywords": [
+    "UMLS"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mmiszy/umls/issues"
+  },
+  "homepage": "https://github.com/mmiszy/umls#readme"
+}
