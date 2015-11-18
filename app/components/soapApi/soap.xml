@@ -1,0 +1,48 @@
+<v:Envelope xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns:d="http://www.w3.org/2001/XMLSchema"
+            xmlns:c="http://schemas.xmlsoap.org/soap/encoding/" xmlns:v="http://schemas.xmlsoap.org/soap/envelope/">
+    <v:Header/>
+    <v:Body>
+        <n0:getHierarchyRoots id="o0" c:root="1" xmlns:n0="http://ws.umls/"/>
+    </v:Body>
+</v:Envelope>
+    User-Agent: kSOAP/2.0
+    SOAPAction: getHierarchyRoots
+    Content-Type: text/xml
+
+
+<v:Envelope xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns:d="http://www.w3.org/2001/XMLSchema"
+            xmlns:c="http://schemas.xmlsoap.org/soap/encoding/" xmlns:v="http://schemas.xmlsoap.org/soap/envelope/">
+<v:Header/>
+<v:Body>
+    <n0:getMainConcepts id="o0" c:root="1" xmlns:n0="http://ws.umls/">
+        <arg0 i:type="d:string">cat</arg0>
+    </n0:getMainConcepts>
+</v:Body>
+</v:Envelope>
+
+
+<v:Envelope xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns:d="http://www.w3.org/2001/XMLSchema"
+            xmlns:c="http://schemas.xmlsoap.org/soap/encoding/" xmlns:v="http://schemas.xmlsoap.org/soap/envelope/">
+<v:Header/>
+<v:Body>
+    <n0:getRelatedConcepts id="o0" c:root="1" xmlns:n0="http://ws.umls/">
+        <arg0 i:type="c:base64">rO0ABXQACEMwMDQwNDA1</arg0>
+        <arg1 i:type="c:base64">
+            rO0ABXNyABNqYXZhLnV0aWwuQXJyYXlMaXN0eIHSHZnHYZ0DAAFJAARzaXpleHAAAAACdwQAAAACdAAIQTAxMzU0NDN0AAhBMDEzNTM1N3g=
+        </arg1>
+    </n0:getRelatedConcepts>
+</v:Body>
+</v:Envelope>
+
+
+<v:Envelope xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns:d="http://www.w3.org/2001/XMLSchema"
+            xmlns:c="http://schemas.xmlsoap.org/soap/encoding/" xmlns:v="http://schemas.xmlsoap.org/soap/envelope/">
+<v:Header/>
+<v:Body>
+    <n0:getRelatedConcepts id="o0" c:root="1" xmlns:n0="http://ws.umls/">
+        <arg0 i:type="c:base64">rO0ABXQACEMwMDI0MTE4</arg0>
+        <arg1 i:type="c:base64">rO0ABXNyABNqYXZhLnV0aWwuQXJyYXlMaXN0eIHSHZnHYZ0DAAFJAARzaXpleHAAAAAPdwQAAAAPdAAIQTAxMzUzNDV0AAhBMDEzNTM0NnQACEEwMTM1MzQ4dAAIQTAxMzUzNzR0AAhBMDEzNTM5MXQACEEwMTM1NDM0dAAIQTAxMzU0NDN0AAhBMDcyMzM5N3QACEEwMTM1MzU3dAAJQTEyMDcxNTcydAAJQTEyMDkzNDg4dAAIQTAxMzU0NzJ0AAhBMDEzNTQ4MnQACUExMjA2Nzk3NnQACEE4NDIwNDMzeA==
+        </arg1>
+    </n0:getRelatedConcepts>
+</v:Body>
+</v:Envelope>
