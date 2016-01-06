@@ -8,6 +8,7 @@
   ],
   "files": [
     "typings/tsd.d.ts",
-    "app/shim.d.ts"
+    "app/shim.d.ts",
+    "app/miserables.d.ts"
   ]
 }

@@ -1,7 +1,12 @@
 import $ from './jquery';
 import ByteArraySerializer from './components/soapApi/byteArraySerializer';
 
-import Button from './components/button/button';
+import Graph from './components/graph/graph';
+import miserables from 'json!./miserables.json';
 
-const button = new Button('http://google.com');
-button.render('a');
+const graph = new Graph('chart', {
+    width: 960,
+    height: 500
+});
+
+graph.setData(miserables);
