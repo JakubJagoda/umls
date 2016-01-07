@@ -1,17 +1,22 @@
-import fisheyeFilter from '../fisheyeFilter/fisheyeFilter';
 import * as d3 from 'd3';
+import d3Force = d3.layout.Force;
+import Link = d3.layout.tree.Link;
+import Node = d3.layout.tree.Node;
+
+type UniversalNode = Node&IChildlessNode&INode;
 
 interface IGraphSize {
     width: number;
     height: number;
 }
 
-d3.fisheye = fisheyeFilter;
-
 export default class Graph {
     private node:HTMLElement;
-    private data:IData;
+    private data:IPlainData;
     private svg:d3.Selection<SVGElement>;
+    private force:d3.layout.Force<any, any>;
+    private links:d3.selection.Update<Link<Node>>;
+    private nodes:d3.selection.Update<UniversalNode>;
 
     constructor(element:HTMLElement|string, private size:IGraphSize) {
         if (typeof element === 'string') {
@@ -41,101 +46,152 @@ export default class Graph {
             .attr("height", height);
     }
 
-    setData(data:IData) {
+    setData(data:IPlainData) {
         this.data = data;
         this.renderGraph();
     }
 
     renderGraph() {
-        const n = this.data.nodes.length;
+        const {width, height} = this.size;
 
-        const force = d3.layout.force()
-            .charge(-240)
-            .linkDistance(40)
-            .size([this.size.width, this.size.height]);
-
-        force.nodes(this.data.nodes).links(this.data.links);
-
-        // Initialize the positions deterministically, for better results.
-        this.data.nodes.forEach((d, i) => {
-            d.x = d.y = this.size.width / n * i;
-        });
-
-        // Run the layout a fixed number of times.
-        // The ideal number of times scales with graph complexity.
-        // Of course, don't run too long—you'll hang the page!
-        force.start();
-        for (let i = n; i > 0; --i) {
-            (<any>force).tick(); //hack, but typings for d3 don't include that
-        }
-        force.stop();
-
-        // Center the nodes in the middle.
-        let ox = 0, oy = 0;
-        this.data.nodes.forEach(d => {
-            ox += d.x;
-            oy += d.y;
-        });
-        ox = ox / n - this.size.width / 2;
-        oy = oy / n - this.size.height / 2;
-        this.data.nodes.forEach(d => {
-            d.x -= ox;
-            d.y -= oy;
-        });
-
-        const link = this.svg.selectAll(".link")
-            .data(this.data.links)
-            .enter().append('g').append("line")
-            .attr("class", "link")
-            .attr("x1", d => d.source.x)
-            .attr("y1", d => d.source.y)
-            .attr("x2", d => d.target.x)
-            .attr("y2", d => d.target.y)
-            .style("stroke-width", d => Math.sqrt(d.value));
-
-        const labels = d3.select(this.node).selectAll('.link').select(function () {
-                return this.parentNode;
+        this.force = d3.layout.force()
+            .on("tick", this.tickHandler.bind(this))
+            .charge(function (d) {
+                return (<any>d)._children ? -(<any>d).size / 100 : -30;
             })
-            .append('text').text(d => d.value)
-            .attr("class", "edge-label")
-            .style("fill", "#555").style("font-family", "Arial").style("font-size", 12)
-            .attr("x", function (d) {
-                return (d.source.x + d.target.x) / 2;
+            .linkDistance(function (d) {
+                return (<any>d.target)._children ? 80 : 30;
             })
-            .attr("y", function (d) {
-                return (d.source.y + d.target.y) / 2;
+            .size([width, height]);
+
+        this.svg.attr({
+            width,
+            height
+        });
+
+        this.updateGraph();
+    }
+
+    private tickHandler() {
+        this.links.attr("x1", function (d) {
+                return d.source.x;
+            })
+            .attr("y1", function (d) {
+                return d.source.y;
+            })
+            .attr("x2", function (d) {
+                return d.target.x;
+            })
+            .attr("y2", function (d) {
+                return d.target.y;
             });
 
-        const color = d3.scale.category20<number>();
+        this.nodes.attr("cx", function (d) {
+                return d.x;
+            })
+            .attr("cy", function (d) {
+                return d.y;
+            });
+    }
 
-        const node = this.svg.selectAll(".node")
-            .data(this.data.nodes)
-            .enter().append("circle")
+    private dblClickHandler(d: UniversalNode) {
+        if (d.children) {
+            d._children = d.children;
+            d.children = null;
+        } else {
+            d.children = d._children;
+            d._children = null;
+        }
+
+        this.updateGraph();
+    }
+
+    private static flattenTree(tree:IPlainData):IChildlessNode[] {
+        var nodes = [], i = 0;
+
+        function recurse(node):number {
+            if (node.children) node.size = node.children.reduce(function (p, v) {
+                return p + recurse(v);
+            }, 0);
+
+            if (!node.id) node.id = ++i;
+            nodes.push(node);
+            return node.size;
+        }
+
+        tree.size = recurse(tree);
+        return nodes;
+    }
+
+    private updateGraph() {
+        var nodesPlainData = Graph.flattenTree(this.data),
+            linksPlainData = d3.layout.tree().links(nodesPlainData);
+
+        // Restart the force layout.
+        this.force
+            .nodes(nodesPlainData)
+            .links(linksPlainData)
+            .start();
+
+        // Update the links…
+        this.links = this.svg.selectAll<UniversalNode>("line.link")
+            .data(linksPlainData, function (d) {
+                return (<any>d.target).id;
+            });
+
+        // Enter any new links.
+        this.links.enter().insert("svg:line", ".node")
+            .attr("class", "link")
+            .attr("x1", function (d) {
+                return d.source.x;
+            })
+            .attr("y1", function (d) {
+                return d.source.y;
+            })
+            .attr("x2", function (d) {
+                return d.target.x;
+            })
+            .attr("y2", function (d) {
+                return d.target.y;
+            });
+
+        // Exit any old links.
+        this.links.exit().remove();
+
+        // Update the nodes…
+        this.nodes = this.svg.selectAll("circle.node")
+            .data<any>(nodesPlainData, function (d) {
+                return d.id;
+            })
+            .style("fill", Graph.getNodeColor);
+
+        this.nodes.transition()
+            .attr("r", function (d) {
+                return d.children ? 4.5 : Math.sqrt(d.size) / 10;
+            });
+
+        // Enter any new nodes.
+        this.nodes.enter().append("svg:circle")
             .attr("class", "node")
-            .attr("cx", d => d.x)
-            .attr("cy", d => d.y)
-            .attr("r", 4.5)
-            .style("fill", d => color(<any>d.group)) //Webstorm, y u underline dis? It is correct without this explicit typecast!
-            .call(force.drag);
+            .attr("cx", function (d) {
+                return d.x;
+            })
+            .attr("cy", function (d) {
+                return d.y;
+            })
+            .attr("r", function (d) {
+                return d.children ? 4.5 : Math.sqrt(d.size) / 10;
+            })
+            .style("fill", Graph.getNodeColor)
+            .on("dblclick", this.dblClickHandler.bind(this))
+            .call(this.force.drag);
 
-        const fisheye: any = d3.fisheye.circular()
-            .radius(120);
+        // Exit any old nodes.
+        this.nodes.exit().remove();
+    }
 
-        this.svg.on("mousemove", function() {
-            fisheye.focus(d3.mouse(this));
-
-            node.each(function(d) { d.fisheye = fisheye(d); })
-                .attr("cx", d => d.fisheye.x)
-                .attr("cy", d => d.fisheye.y)
-                .attr("r", d => d.fisheye.z * 4.5);
-
-            link.attr("x1", d => d.source.fisheye.x)
-                .attr("y1", d => d.source.fisheye.y)
-                .attr("x2", d => d.target.fisheye.x)
-                .attr("y2", d => d.target.fisheye.y);
-
-            labels.attr("x", d => (d.source.fisheye.x + d.target.fisheye.x) / 2)
-                .attr("y", d => (d.source.fisheye.y + d.target.fisheye.y) / 2)
-        });
+    private static getNodeColor(d) {
+        // Color leaf nodes orange, and packages white or blue.
+        return d._children ? "#3182bd" : d.children ? "#c6dbef" : "#fd8d3c";
     }
 }
