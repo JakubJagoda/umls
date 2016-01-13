@@ -170,6 +170,16 @@ export default class Graph {
                 return d.children ? 4.5 : Math.sqrt(d.size) / 10;
             });
 
+        var zoom = d3.behavior.zoom()
+            .scaleExtent([1, 10])
+            .on("zoom", (...args) => {
+                if(!d3.event) {
+                    return;
+                }
+                const event: d3.ZoomEvent = <d3.ZoomEvent>d3.event;
+                this.svg.attr("transform", "translate(" + event.translate + ")scale(" + event.scale + ")");
+            });
+
         // Enter any new nodes.
         this.nodes.enter().append("svg:circle")
             .attr("class", "node")
@@ -184,7 +194,8 @@ export default class Graph {
             })
             .style("fill", Graph.getNodeColor)
             .on("dblclick", this.dblClickHandler.bind(this))
-            .call(this.force.drag);
+            .call(this.force.drag)
+            .call(zoom);
 
         // Exit any old nodes.
         this.nodes.exit().remove();

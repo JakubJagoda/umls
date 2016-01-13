@@ -29,3 +29,8 @@ declare module 'json!./data.json' {
     let m: IPlainData;
     export default m;
 }
+
+declare module 'handlebars!./sidebar.handlebars' {
+    var t: HandlebarsTemplateDelegate;
+    export default t;
+}

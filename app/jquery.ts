@@ -3,5 +3,5 @@
  * when used with ES6 imports
  */
 import * as jQueryFactory from 'jquery';
-const $ : JQueryStatic = jQueryFactory.noConflict();
+const $ : JQueryStatic = <JQueryStatic>jQueryFactory.noConflict();
 export default $;
