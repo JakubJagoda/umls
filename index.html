@@ -44,12 +44,28 @@
         body.edge-labels-visible .edge-label {
             display: inherit;
         }
+
+        .main {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+        }
+
+        .left {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
     </style>
 </head>
 <body>
-<h1>hello</h1>
-<div id="chart"></div>
-<div class="sidebar"></div>
+<div class="main">
+    <div class="left">
+        <div class="sidebar"></div>
+        <div class="search-form"></div>
+    </div>
+    <div id="chart"></div>
+</div>
 <script src="build/bundle.js"></script>
 </body>
 </html>

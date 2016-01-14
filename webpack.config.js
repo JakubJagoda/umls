@@ -79,8 +79,7 @@ module.exports = {
             loaders: [
                 'babel',
                 'ts'
-            ],
-            include: __dirname + '/app'
+            ]
         }, {
             test: /\.scss/,
             loaders: production ?

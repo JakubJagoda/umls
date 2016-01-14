@@ -87,8 +87,8 @@ SOAPClientParameters._serialize = function(t, o)
                 var seconds = o.getSeconds().toString();
                 seconds = (seconds.length == 1) ? "0" + seconds : seconds;
                 var milliseconds = o.getMilliseconds().toString();
-                var tzminutes = Math.abs(o.getTimezoneOffset());
-                var tzhours = 0;
+                var tzminutes: any = Math.abs(o.getTimezoneOffset());
+                var tzhours: any = 0;
                 while(tzminutes >= 60)
                 {
                     tzhours++;
@@ -206,34 +206,15 @@ SOAPClient._sendSoapRequest = function(url, method, parameters, async, callback,
     // get namespace
     var ns = (typeof wsdl.documentElement.attributes["targetNamespace"] == "undefined") ? wsdl.documentElement.attributes.getNamedItem("targetNamespace").nodeValue : wsdl.documentElement.attributes["targetNamespace"].value;
     // build SOAP request
-var sr =
-'<v:Envelope xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns:d="http://www.w3.org/2001/XMLSchema" xmlns:c="http://schemas.xmlsoap.org/soap/encoding/" xmlns:v="http://schemas.xmlsoap.org/soap/envelope/">' +
-'<v:Header />' +
-'<v:Body>' +
-'<n0:getMainConcepts id="o0" c:root="1" xmlns:n0="http://ws.umls/">' +
-parameters.toXml() +
-'</n0:getMainConcepts>' +
-'</v:Body>' +
-'</v:Envelope>';
+var sr = `<v:Envelope xmlns:i="http://www.w3.org/2001/XMLSchema-instance" xmlns:d="http://www.w3.org/2001/XMLSchema" xmlns:c="http://schemas.xmlsoap.org/soap/encoding/" xmlns:v="http://schemas.xmlsoap.org/soap/envelope/">
+<v:Header />
+<v:Body>
+<n0:${method} id="o0" c:root="1" xmlns:n0="http://ws.umls/">
+${parameters.toXml()}
+</n0:${method}>
+</v:Body>
+</v:Envelope>`;
 
-    // var sr =
-    // "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
-    // "<soap:Envelope " +
-    // "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" " +
-    // "xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" " +
-    // "xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" " +
-    // (SOAPClient.explicitNS?"xmlns:tns=\"" + ns + "\"":"") +
-    // parameters.printSchemaList() +
-    // ">" +
-    // (SOAPClient.auth?"<soap:Header><AuthHeader xmlns=\"" + ns + "\">" +
-    // "<Username>"+SOAPClient.authUser+"</Username>" +
-    // "<Password>"+SOAPClient.authPass+"</Password>" +
-    // "</AuthHeader></soap:Header>":"") +
-    // "<soap:Body>" +
-    // (SOAPClient.explicitNS?"<tns:" + method + ">":"<" + method + " xmlns=\"" + ns + "\">") +
-    // parameters.toXml() +
-    // (SOAPClient.explicitNS?"</tns:" + method + ">":"</" + method + ">") +
-    // "</soap:Body></soap:Envelope>";
     // send request
     var xmlHttp = SOAPClient._getXmlHttp();
     if (SOAPClient.userName && SOAPClient.password){
@@ -333,7 +314,7 @@ SOAPClient._node2object = function(node, wsdlTypes)
     }
     return null;
 }
-SOAPClient._extractValue = function(node, wsdlTypes)
+SOAPClient._extractValue = function(node, wsdlTypes):any
 {
     var value = node.nodeValue;
     switch(SOAPClient._getTypeFromWsdl(node.parentNode.nodeName, wsdlTypes).toLowerCase())

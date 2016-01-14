@@ -1,5 +1,16 @@
-<ul>
-{{#each this}}
-    <li><label><input type="checkbox" id="{{name}}" />{{text}}</label></li>
-{{/each}}
-</ul>
+<div>
+    <ul class="sidebar">
+        <li class="sidebar__element">
+            <label class="sidebar__label">
+                <input type="checkbox"/>All relations
+            </label>
+        </li>
+        {{#each this}}
+            <li class="sidebar__element">
+                <label class="sidebar__label">
+                    <input type="checkbox" id="{{id}}"/>{{name}}
+                </label>
+            </li>
+        {{/each}}
+    </ul>
+</div>

@@ -46,7 +46,7 @@ export default class Graph {
             .attr("height", height);
     }
 
-    setData(data:IPlainData) {
+    setData(data:any) {
         this.data = data;
         this.renderGraph();
     }

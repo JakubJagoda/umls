@@ -1,0 +1,8 @@
+.sidebar {
+    list-style-type: none;
+    padding-left: 0;
+
+    &__element, &__label {
+        cursor: pointer;
+    }
+}
