@@ -26,15 +26,27 @@ searchForm.render($('.search-form'));
 searchForm.setSearchCallback(searchTerm => {
     soapApi.getMainConcepts(searchTerm).then(data => {
         const properData = {
-            name: searchTerm,
+            nstr: searchTerm,
+            cui: searchTerm,
+            size: data.length,
             children: data.map(datum => {
-                datum['size'] = 10000;
+                datum['size'] = 1;
                 return datum;
             })
         };
 
         graph.setData(properData);
     });
+});
+
+graph.setNodeClickedCallback(node => {
+    return soapApi.getRelatedConcepts(node.cui, sidebar.getCheckedRelations()).then(res => {
+        node.size = res.length;
+        return res.map(datum => {
+            datum['size'] = 1;
+            return datum;
+        });
+    })
 });
 
 

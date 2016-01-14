@@ -1,9 +1,12 @@
 import * as d3 from 'd3';
+import $ from '../../jquery';
+
 import d3Force = d3.layout.Force;
 import Link = d3.layout.tree.Link;
 import Node = d3.layout.tree.Node;
 
 type UniversalNode = Node&IChildlessNode&INode;
+type NodeClickedCallback = (node:any) => Promise<any[]>
 
 interface IGraphSize {
     width: number;
@@ -15,8 +18,9 @@ export default class Graph {
     private data:IPlainData;
     private svg:d3.Selection<SVGElement>;
     private force:d3.layout.Force<any, any>;
-    private links:d3.selection.Update<Link<Node>>;
-    private nodes:d3.selection.Update<UniversalNode>;
+    private links:d3.selection.Update<Link<any>>;
+    private nodes:d3.selection.Update<any>;
+    private nodeClickedCallback:NodeClickedCallback;
 
     constructor(element:HTMLElement|string, private size:IGraphSize) {
         if (typeof element === 'string') {
@@ -57,10 +61,10 @@ export default class Graph {
         this.force = d3.layout.force()
             .on("tick", this.tickHandler.bind(this))
             .charge(function (d) {
-                return (<any>d)._children ? -(<any>d).size / 100 : -30;
+                return (<any>d)._children ? -100 : -200;
             })
             .linkDistance(function (d) {
-                return (<any>d.target)._children ? 80 : 30;
+                return (<any>d.target)._children ? 150 : 100;
             })
             .size([width, height]);
 
@@ -73,34 +77,43 @@ export default class Graph {
     }
 
     private tickHandler() {
-        this.links.attr("x1", function (d) {
-                return d.source.x;
-            })
-            .attr("y1", function (d) {
-                return d.source.y;
-            })
-            .attr("x2", function (d) {
-                return d.target.x;
-            })
-            .attr("y2", function (d) {
-                return d.target.y;
-            });
+        this.links.attr({
+            x1: d => d.source.x,
+            y1: d => d.source.y,
+            x2: d => d.target.x,
+            y2: d => d.target.y,
+        });
 
-        this.nodes.attr("cx", function (d) {
-                return d.x;
+        this.nodes.selectAll('circle.node').attr({
+            cx: d => d.x,
+            cy: d => d.y,
+            r: d => Graph.getNodeR(d)
+        });
+
+        this.nodes.selectAll('text.node-label').attr("x", function (d) {
+                return d.x - $(this).width() / 2;
             })
-            .attr("cy", function (d) {
+            .attr("y", function (d) {
                 return d.y;
             });
     }
 
-    private dblClickHandler(d: UniversalNode) {
-        if (d.children) {
-            d._children = d.children;
-            d.children = null;
+    private dblClickHandler(d:UniversalNode) {
+        if (!d.children && !d._children) {
+            this.nodeClickedCallback(d).then(children => {
+                d.children = children;
+                this.updateGraph();
+            });
+
+            return;
         } else {
-            d.children = d._children;
-            d._children = null;
+            if (d.children) {
+                d._children = d.children;
+                d.children = null;
+            } else {
+                d.children = d._children;
+                d._children = null;
+            }
         }
 
         this.updateGraph();
@@ -114,7 +127,7 @@ export default class Graph {
                 return p + recurse(v);
             }, 0);
 
-            if (!node.id) node.id = ++i;
+            //if (!node.id) node.id = ++i;
             nodes.push(node);
             return node.size;
         }
@@ -124,85 +137,88 @@ export default class Graph {
     }
 
     private updateGraph() {
-        var nodesPlainData = Graph.flattenTree(this.data),
-            linksPlainData = d3.layout.tree().links(nodesPlainData);
+        const nodesPlainData = Graph.flattenTree(this.data);
+        const linksPlainData = d3.layout.tree().links(nodesPlainData);
 
-        // Restart the force layout.
         this.force
             .nodes(nodesPlainData)
             .links(linksPlainData)
             .start();
 
-        // Update the links…
-        this.links = this.svg.selectAll<UniversalNode>("line.link")
-            .data(linksPlainData, function (d) {
-                return (<any>d.target).id;
+        this.links = this.svg.selectAll('line.link')
+            .data(linksPlainData, d => {
+                return `${(<any>d.source).cui}-${(<any>d.target).cui}`
             });
 
-        // Enter any new links.
-        this.links.enter().insert("svg:line", ".node")
-            .attr("class", "link")
-            .attr("x1", function (d) {
-                return d.source.x;
-            })
-            .attr("y1", function (d) {
-                return d.source.y;
-            })
-            .attr("x2", function (d) {
-                return d.target.x;
-            })
-            .attr("y2", function (d) {
-                return d.target.y;
+        this.links.enter()
+            .append('line')
+            .attr({
+                'class': 'link',
+                x1: d => d.source.x,
+                y1: d => d.source.y,
+                x2: d => d.target.x,
+                y2: d => d.target.y,
             });
 
-        // Exit any old links.
         this.links.exit().remove();
 
-        // Update the nodes…
-        this.nodes = this.svg.selectAll("circle.node")
+        this.nodes = this.svg.selectAll("g")
             .data<any>(nodesPlainData, function (d) {
-                return d.id;
-            })
-            .style("fill", Graph.getNodeColor);
-
-        this.nodes.transition()
-            .attr("r", function (d) {
-                return d.children ? 4.5 : Math.sqrt(d.size) / 10;
+                return d.cui;
             });
 
-        var zoom = d3.behavior.zoom()
-            .scaleExtent([1, 10])
-            .on("zoom", (...args) => {
-                if(!d3.event) {
-                    return;
-                }
-                const event: d3.ZoomEvent = <d3.ZoomEvent>d3.event;
-                this.svg.attr("transform", "translate(" + event.translate + ")scale(" + event.scale + ")");
-            });
+        this.nodes.selectAll('circle.node')
+            .style('fill', Graph.getNodeColor);
 
-        // Enter any new nodes.
-        this.nodes.enter().append("svg:circle")
-            .attr("class", "node")
-            .attr("cx", function (d) {
-                return d.x;
+        this.nodes.enter()
+            .append('g')
+            .attr('class', 'group')
+            .append('circle')
+            .attr({
+                'class': 'node',
+                cx: d => d.x,
+                cy: d => d.y,
+                r: d => Graph.getNodeR(d)
             })
-            .attr("cy", function (d) {
-                return d.y;
-            })
-            .attr("r", function (d) {
-                return d.children ? 4.5 : Math.sqrt(d.size) / 10;
-            })
-            .style("fill", Graph.getNodeColor)
-            .on("dblclick", this.dblClickHandler.bind(this))
+            .style('fill', Graph.getNodeColor)
+            .on('dblclick', this.dblClickHandler.bind(this))
             .call(this.force.drag)
-            .call(zoom);
+            .select(function () {
+                return this.parentNode;
+            }) // reset to <g>
+            .append('text')
+            .attr({
+                'class': 'node-label',
+                x: d => d.x,
+                y: d => d.y
+            })
+            .text(d => (<any>d).nstr);
 
-        // Exit any old nodes.
+        this.nodes.each(function () {
+                this.parentNode.appendChild(this); // moves circles to front
+            });
+
         this.nodes.exit().remove();
     }
 
     private static getNodeColor(d) {
         // Color leaf nodes orange, and packages white or blue.
         return d._children ? "#3182bd" : d.children ? "#c6dbef" : "#fd8d3c";
+    }
+
+    private static getNodeR(d) {
+        let baseSize = 8;
+
+        if (d.children) {
+            baseSize += d.children.length * 2.5;
+        } else if (d._children) {
+            baseSize += d._children.length * 2.5;
+        }
+
+        return baseSize;
+    }
+
+    setNodeClickedCallback(nodeClickedCallback:NodeClickedCallback) {
+        this.nodeClickedCallback = nodeClickedCallback;
     }
 }

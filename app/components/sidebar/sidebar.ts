@@ -20,7 +20,7 @@ export default class Sidebar {
         });
     }
 
-    getChecked():string[] {
+    getCheckedRelations():string[] {
         return this.element.find(`input[type='checkbox']:gt(0):checked`)
             .map((_, element) => {
                 return $(element).attr('id');

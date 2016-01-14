@@ -6,9 +6,11 @@ type searchCallback = (searchTerm:string) => any;
 export default class SearchForm {
     private element:JQuery;
     private searchCallback:searchCallback;
+    private previouslySearchedTerm: string;
 
     render(where:HTMLElement|JQuery) {
         this.element = $(template({}));
+        this.previouslySearchedTerm = '';
 
         $(where)
             .empty()
@@ -26,6 +28,13 @@ export default class SearchForm {
     }
 
     searchData(searchTerm:string) {
+        if (searchTerm === this.previouslySearchedTerm) {
+            // @todo there's a bug in graph rendering if the user searches for the same data again
+            // so until it's resolve, we're just going to block that
+            return;
+        }
+
+        this.previouslySearchedTerm = searchTerm;
         this.searchCallback(searchTerm);
     }
 

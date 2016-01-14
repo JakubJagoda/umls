@@ -5,7 +5,7 @@ export default class SoapApi {
     private static SERVER_URL = 'http://localhost:3000';
 
     private static prepareData(arr:string[]) {
-        return JSON.stringify(arr).replace(`"`, '');
+        return JSON.stringify(arr).replace(/"/g, '');
     }
 
     getHierarchyRoots() {
@@ -35,6 +35,10 @@ export default class SoapApi {
             const getMainConceptsParameters = new SOAPClientParameters();
             getMainConceptsParameters.add('arg0', searchTerm);
             SOAPClient.invoke(SoapApi.SERVER_URL, 'getMainConcepts', getMainConceptsParameters, true, function (res) {
+                if (!res) {
+                    return resolve([]);
+                }
+
                 const cuiStrPairs = res.split('*');
 
                 if (!cuiStrPairs[cuiStrPairs.length - 1]) {
@@ -62,16 +66,41 @@ export default class SoapApi {
         });
     }
 
-    getRelatedConcepts(id:string, concepts:string[]) {
-        return new Promise(resolve => {
+    getRelatedConcepts(id:string, concepts:string[]):Promise<any[]> {
+        return new Promise<any[]>(resolve => {
             let data = SoapApi.prepareData(concepts);
             const getRelatedConceptsParameters = new SOAPClientParameters();
 
             getRelatedConceptsParameters.add('arg0', btoa(id));
             getRelatedConceptsParameters.add('arg1', btoa(data));
             SOAPClient.invoke(SoapApi.SERVER_URL, 'getRelatedConcepts', getRelatedConceptsParameters, true, function (res) {
-                const parsedData = atob(res);
-                resolve(parsedData);
+                if (!res) {
+                    return resolve([]);
+                }
+
+                const cuiNstrRelTriples = res.split('*');
+
+                if (!cuiNstrRelTriples[cuiNstrRelTriples.length - 1]) {
+                    cuiNstrRelTriples.pop();
+                }
+
+                const relatedConcepts = cuiNstrRelTriples.map(idNamePair => {
+                    const splitted = idNamePair.split('/');
+                    const cui = splitted[0].replace('Cui=', '');
+                    const nstr = splitted[1].replace('Nstr=', '');
+
+                    return {cui, nstr}
+                });
+
+                const relatedConceptsWithoutDuplicates = relatedConcepts.reduce((reduced, current) => {
+                    if (reduced.map(concept => concept.cui).indexOf(current.cui) === -1) {
+                        reduced.push(current);
+                    }
+
+                    return reduced;
+                }, []);
+
+                resolve(relatedConceptsWithoutDuplicates);
             });
         });
     }
