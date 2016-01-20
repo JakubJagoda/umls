@@ -26,6 +26,7 @@ searchForm.render($('.search-form'));
 searchForm.setSearchCallback(searchTerm => {
     soapApi.getMainConcepts(searchTerm).then(data => {
         const properData = {
+            _root: true,
             nstr: searchTerm,
             cui: searchTerm,
             size: data.length,
