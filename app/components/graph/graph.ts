@@ -17,10 +17,11 @@ export default class Graph {
     private node:HTMLElement;
     private data:IPlainData;
     private svg:d3.Selection<SVGElement>;
-    private g: d3.Selection<SVGElement>;
+    private g:d3.Selection<SVGElement>;
 
     private force:d3.layout.Force<any, any>;
     private zoom:d3.behavior.Zoom<any>;
+    private drag:d3.behavior.Drag<any>;
 
     private links:d3.selection.Update<Link<any>>;
     private nodes:d3.selection.Update<any>;
@@ -28,6 +29,18 @@ export default class Graph {
 
     private static ZOOM_MIN_FACTOR = 0.5;
     private static ZOOM_MAX_FACTOR = 3;
+    private static NODE_TITLE_MARGIN = 7.5;
+    private static NODE_MIN_WIDTH = 50;
+    private static NODE_HEIGHT = 30;
+    private static MAX_LINK_DISTANCE = 200;
+    private static LINK_DISTANCE_PER_CHILD = 25;
+    private static CHARGE_VALUE = -1000;
+    private static CHARGE_MULTIPLIER_FOR_NODES_WITH_CHILDREN = 10;
+    private static NODE_COLOR = '#c6dbef';
+    private static COLLAPSED_NODE_COLOR = '#3182bd';
+    private static CHILDLESS_NODE_COLOR = '#fd8d3c';
+
+    private textWidthHelper:d3.Selection<SVGElement>;
 
     constructor(element:HTMLElement|string, private size:IGraphSize) {
         if (typeof element === 'string') {
@@ -51,6 +64,17 @@ export default class Graph {
 
         this.svg.attr('width', width)
             .attr('height', height);
+
+        this.textWidthHelper = this.g
+            .append('g')
+            .append('text')
+            .attr({
+                'class': 'node-label',
+                x: -9999,
+                y: -9999,
+                visibility: 'hidden',
+                'pointer-events': 'none'
+            });
     }
 
     setData(data:any) {
@@ -69,12 +93,15 @@ export default class Graph {
                     return 0;
                 }
 
-                const MAX_DIST = 200;
-                return Math.min(d.children.length * 25, MAX_DIST);
+                return Math.min(d.children.length * Graph.LINK_DISTANCE_PER_CHILD, Graph.MAX_LINK_DISTANCE);
             })
-            .charge(function(d){
-                var charge = -1000;
-                if ((<any>d)._root || (<any>d).children) charge = 10 * charge;
+            .charge(function (d) {
+                let charge = Graph.CHARGE_VALUE;
+
+                if ((<any>d)._root || (<any>d).children) {
+                    charge = Graph.CHARGE_MULTIPLIER_FOR_NODES_WITH_CHILDREN * charge;
+                }
+
                 return charge;
             })
             .size([width, height]);
@@ -96,24 +123,25 @@ export default class Graph {
 
     private tickHandler() {
         this.links.attr({
-            x1: d => d.source.x + Graph.getNodeWidth(d.source)/2,
-            y1: d => d.source.y + 15,
-            x2: d => d.target.x + Graph.getNodeWidth(d.target)/2,
-            y2: d => d.target.y + 15,
+            x1: d => d.source.x + this.getNodeWidth(d.source) / 2,
+            y1: d => d.source.y + Graph.NODE_HEIGHT / 2,
+            x2: d => d.target.x + this.getNodeWidth(d.target) / 2,
+            y2: d => d.target.y + Graph.NODE_HEIGHT / 2,
         });
 
         this.nodes.selectAll('.node').attr({
             x: d => d.x,
             y: d => d.y,
-            width: d => Graph.getNodeWidth(d),
-            height: 30
+            width: d => this.getNodeWidth(d),
+            height: Graph.NODE_HEIGHT
         });
 
-        this.nodes.selectAll('text.node-label').attr('x', function (d) {
-                return d.x - $(this).width() / 2 + Graph.getNodeWidth(d) / 2;
+        const that = this; // hello ES5 my old friend, I've come to talk with you again...
+        this.nodes.selectAll('.node-label').attr('x', function (d) {
+                return d.x - $(this).width() / 2 + that.getNodeWidth(d) / 2;
             })
             .attr('y', function (d) {
-                return d.y + 15;
+                return d.y + Graph.NODE_HEIGHT / 2;
             });
     }
 
@@ -123,6 +151,7 @@ export default class Graph {
         if (!d.children && !d._children) {
             this.nodeClickedCallback(d).then(children => {
                 // children now can contain duplicated cuis! Need to remove them
+                // @todo this will prevent bugs with empty links, but will also remove double links, which are desired
                 const nodesPlainData = Graph.flattenTree(this.data);
 
                 d.children = children.filter(child => {
@@ -146,14 +175,13 @@ export default class Graph {
     }
 
     private static flattenTree(tree:IPlainData):IChildlessNode[] {
-        var nodes = [], i = 0;
+        var nodes = [];
 
         function recurse(node):number {
             if (node.children) node.size = node.children.reduce(function (p, v) {
                 return p + recurse(v);
             }, 0);
 
-            //if (!node.id) node.id = ++i;
             nodes.push(node);
             return node.size;
         }
@@ -162,14 +190,20 @@ export default class Graph {
         return nodes;
     }
 
-    private updateGraph(initial: boolean = false) {
+    private updateGraph(initial:boolean = false) {
         const nodesPlainData = Graph.flattenTree(this.data);
         const linksPlainData = d3.layout.tree().links(nodesPlainData);
 
-        var node_drag = d3.behavior.drag()
-            .on('dragstart', this.dragstartHandler.bind(this))
-            .on('drag', this.dragmoveHandler.bind(this))
-            .on('dragend', this.dragendHandler.bind(this));
+        const rootNode = nodesPlainData.find(node => (<any>node)._root);
+        (<any>rootNode).fixed = true;
+        (<any>rootNode).x = Number(this.svg.attr('width')) / 2;
+        (<any>rootNode).y = Number(this.svg.attr('height')) / 2;
+
+
+        this.drag = d3.behavior.drag()
+            .on('dragstart', this.dragStartHandler.bind(this))
+            .on('drag', this.dragMoveHandler.bind(this))
+            .on('dragend', this.dragEndHandler.bind(this));
 
         this.force
             .nodes(nodesPlainData)
@@ -192,7 +226,7 @@ export default class Graph {
 
         this.links.exit().remove();
 
-        this.nodes = this.g.selectAll('g')
+        this.nodes = this.g.selectAll('.group')
             .data<any>(nodesPlainData, function (d) {
                 return d.cui;
             });
@@ -208,13 +242,13 @@ export default class Graph {
                 'class': 'node',
                 x: d => d.x,
                 y: d => d.y,
-                width: d => Graph.getNodeWidth(d),
-                height: 30
+                width: d => this.getNodeWidth(d),
+                height: Graph.NODE_HEIGHT
             })
             .style('fill', Graph.getNodeColor)
             .on('dblclick', this.dblClickHandler.bind(this))
             .call(this.force.drag)
-            .call(node_drag)
+            .call(this.drag)
             .select(function () {
                 return this.parentNode;
             }) // reset to <g>
@@ -227,39 +261,33 @@ export default class Graph {
             .text(d => (<any>d).nstr);
 
         this.nodes.each(function () {
-                this.parentNode.appendChild(this); // moves circles to front
-            });
+            this.parentNode.appendChild(this); // moves circles to front
+        });
 
         this.nodes.exit().remove();
 
         if (initial) {
             this.force.start();
-            for (let i = 0; i < 10000; ++i) {
-                (<any>this.force).tick();
-            }
+            this.preventInitialNodeShaking();
             this.force.stop();
         } else {
             this.force.start();
         }
     }
 
-    private static getNodeColor(d) {
-        // Color leaf nodes orange, and packages white or blue.
-        return d._children ? '#3182bd' : d.children ? '#c6dbef' : '#fd8d3c';
+    private preventInitialNodeShaking() {
+        for (let i = 0; i < 10000; ++i) {
+            (<any>this.force).tick();
+        }
     }
 
-    private static getNodeWidth(d) {
-        //let baseSize = 8;
-        //
-        //if (d.children) {
-        //    baseSize += d.children.length * 2.5;
-        //} else if (d._children) {
-        //    baseSize += d._children.length * 2.5;
-        //}
-        //
-        //return baseSize;
+    private static getNodeColor(d) {
+        return d._children ? Graph.COLLAPSED_NODE_COLOR : d.children ? Graph.NODE_COLOR : Graph.CHILDLESS_NODE_COLOR;
+    }
 
-        return Math.max(d.nstr.length * 7 * 1.3, 50);
+    private getNodeWidth(d) {
+        this.textWidthHelper.text(d.nstr);
+        return Math.max($(this.textWidthHelper[0]).width() + Graph.NODE_TITLE_MARGIN * 2, Graph.NODE_MIN_WIDTH);
     }
 
     setNodeClickedCallback(nodeClickedCallback:NodeClickedCallback) {
@@ -267,18 +295,18 @@ export default class Graph {
     }
 
     private zoomHandler() {
-        const event: d3.ZoomEvent = <d3.ZoomEvent>d3.event;
+        const event:d3.ZoomEvent = <d3.ZoomEvent>d3.event;
         this.g.attr('transform', `translate(${event.translate})scale(${event.scale})`);
     }
 
-    private dragstartHandler() {
+    private dragStartHandler() {
         ((<MouseEvent>(<any>d3.event).sourceEvent)).stopPropagation();
         this.force.stop();
     }
 
-    private dragmoveHandler(d) {
+    private dragMoveHandler(d) {
         ((<MouseEvent>(<any>d3.event).sourceEvent)).stopPropagation();
-        const event: d3.DragEvent = <d3.DragEvent>d3.event;
+        const event:d3.DragEvent = <d3.DragEvent>d3.event;
         d.px += event.dx;
         d.py += event.dy;
         d.x += event.dx;
@@ -286,7 +314,7 @@ export default class Graph {
         this.tickHandler();
     }
 
-    private dragendHandler(d) {
+    private dragEndHandler(d) {
         ((<MouseEvent>(<any>d3.event).sourceEvent)).stopPropagation();
         d.fixed = true;
         this.tickHandler();
