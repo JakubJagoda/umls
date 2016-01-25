@@ -4,7 +4,7 @@
   "description": "UMLS project ported to HTML5",
   "main": "index.html",
   "scripts": {
-    "build": "./node_modules/.bin/webpack --display-modules --display-chunks --colors --progress",
+    "build": "NODE_ENV=production ./node_modules/.bin/webpack --display-modules --display-chunks --colors --progress",
     "start": "./node_modules/.bin/webpack-dev-server --hot --inline --display-modules --display-chunks --colors --progress --port=9000",
     "test": "./node_modules/.bin/karma start --singleRun=true"
   },

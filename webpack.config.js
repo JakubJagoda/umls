@@ -82,9 +82,9 @@ module.exports = {
             ]
         }, {
             test: /\.scss/,
-            loaders: production ?
-                [ExtractPlugin.extract('style', 'css!sass')] :
-                ['style', 'css?sourceMap', 'sass?sourceMap']
+            loader: production ?
+                ExtractPlugin.extract('style', 'css!sass'):
+                'style!css!sass'
         }, {
             test: /\.handlebars/,
             loader: 'handlebars'
