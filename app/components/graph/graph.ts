@@ -115,6 +115,8 @@ export default class Graph {
             .scaleExtent([Graph.ZOOM_MIN_FACTOR, Graph.ZOOM_MAX_FACTOR])
             .on('zoom', this.zoomHandler.bind(this));
 
+        window['zoom'] = this.zoom;
+
         this.svg.call(this.zoom)
             .on('dblclick.zoom', null); // disables zoom on double click
 
@@ -157,7 +159,9 @@ export default class Graph {
                 d.children = children.filter(child => {
                     return !(nodesPlainData.find(node => (<any>node).cui === (<any>child).cui));
                 });
+
                 this.updateGraph();
+                this.centerOnNode(d);
             });
 
             return;
@@ -169,6 +173,8 @@ export default class Graph {
                 d.children = d._children;
                 d._children = null;
             }
+
+            this.centerOnNode(d);
         }
 
         this.updateGraph();
@@ -322,6 +328,19 @@ export default class Graph {
     }
 
     private resetZoomAndPanning() {
+        this.zoom.translate([0, 0]).scale(1);
         this.g.attr('transform', `translate(0)scale(1)`);
+    }
+
+    private centerOnNode(d) {
+        const currentScale = this.zoom.scale();
+        const {width: canvasWidth, height: canvasHeight} = this.size;
+        const nodeWidth = this.getNodeWidth(d);
+        const nodeHeight = Graph.NODE_HEIGHT;
+        const newTranslateX = -1 * d.x + (canvasWidth - nodeWidth) / 2;
+        const newTranslateY = -1 * d.y + (canvasHeight - nodeHeight) / 2;
+
+        this.zoom.translate([newTranslateX, newTranslateY]);
+        this.g.attr('transform', `translate(${newTranslateX}, ${newTranslateY})scale(${currentScale})`);
     }
 }
