@@ -2,7 +2,8 @@ import {SOAPClientParameters, SOAPClient} from './soapClient';
 import Promise from '../../bluebird-fix';
 
 export default class SoapApi {
-    private static SERVER_URL = 'http://localhost:3000';
+    //private static SERVER_URL = 'http://localhost:3000';
+    private static SERVER_URL = 'http://localhost:8080/UMLSwsService/UMLSws';
 
     private static prepareData(arr:string[]) {
         return JSON.stringify(arr).replace(/"/g, '');
