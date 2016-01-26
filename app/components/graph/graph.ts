@@ -34,9 +34,9 @@ export default class Graph {
     private static NODE_MIN_WIDTH = 50;
     private static NODE_HEIGHT = 30;
     private static MAX_LINK_DISTANCE = 200;
-    private static LINK_DISTANCE_PER_CHILD = 25;
     private static CHARGE_VALUE = -1000;
     private static CHARGE_MULTIPLIER_FOR_NODES_WITH_CHILDREN = 10;
+    private static ZOOM_TRANSITION_DURATION = 300;
     private static NODE_COLOR = '#c6dbef';
     private static COLLAPSED_NODE_COLOR = '#3182bd';
     private static CHILDLESS_NODE_COLOR = '#fd8d3c';
@@ -88,14 +88,8 @@ export default class Graph {
         const {width, height} = this.size;
 
         this.force = d3.layout.force()
-            .on('tick', this.tickHandler.bind(this))
-            .linkDistance(function (d:any) {
-                if (!d.children) {
-                    return 0;
-                }
-
-                return Math.min(d.children.length * Graph.LINK_DISTANCE_PER_CHILD, Graph.MAX_LINK_DISTANCE);
-            })
+            .friction(0.45)
+            .linkDistance(Graph.MAX_LINK_DISTANCE)
             .charge(function (d) {
                 let charge = Graph.CHARGE_VALUE;
 
@@ -115,8 +109,6 @@ export default class Graph {
         this.zoom = d3.behavior.zoom()
             .scaleExtent([Graph.ZOOM_MIN_FACTOR, Graph.ZOOM_MAX_FACTOR])
             .on('zoom', this.zoomHandler.bind(this));
-
-        window['zoom'] = this.zoom;
 
         this.svg.call(this.zoom)
             .on('dblclick.zoom', null); // disables zoom on double click
@@ -161,7 +153,7 @@ export default class Graph {
                     return !(nodesPlainData.find(node => (<any>node).cui === (<any>child).cui));
                 });
 
-                this.updateGraph();
+                this.updateGraph(true);
                 this.centerOnNode(d);
             });
 
@@ -273,17 +265,15 @@ export default class Graph {
 
         this.nodes.exit().remove();
 
-        if (initial) {
-            this.force.start();
-            this.preventInitialNodeShaking();
-            this.force.stop();
-        } else {
-            this.force.start();
-        }
+        this.force.start();
+        this.simulateForce();
+        this.force.stop();
+        this.tickHandler();
     }
 
-    private preventInitialNodeShaking() {
-        for (let i = 0; i < 10000; ++i) {
+    private simulateForce() {
+        const NUMBER_OF_SIMULATED_TICKS = 10000;
+        for (let i = 0; i < NUMBER_OF_SIMULATED_TICKS; ++i) {
             (<any>this.force).tick();
         }
     }
@@ -308,7 +298,6 @@ export default class Graph {
 
     private dragStartHandler() {
         ((<MouseEvent>(<any>d3.event).sourceEvent)).stopPropagation();
-        this.force.stop();
     }
 
     private dragMoveHandler(d) {
@@ -325,23 +314,26 @@ export default class Graph {
         ((<MouseEvent>(<any>d3.event).sourceEvent)).stopPropagation();
         d.fixed = true;
         this.tickHandler();
-        this.force.resume();
     }
 
     private resetZoomAndPanning() {
-        this.zoom.translate([0, 0]).scale(1);
-        this.g.attr('transform', `translate(0)scale(1)`);
+        this.centerOnPosition(0, 0, 1);
     }
 
     private centerOnNode(d) {
-        const currentScale = this.zoom.scale();
         const {width: canvasWidth, height: canvasHeight} = this.size;
         const nodeWidth = this.getNodeWidth(d);
         const nodeHeight = Graph.NODE_HEIGHT;
         const newTranslateX = -1 * d.x + (canvasWidth - nodeWidth) / 2;
         const newTranslateY = -1 * d.y + (canvasHeight - nodeHeight) / 2;
 
-        this.zoom.translate([newTranslateX, newTranslateY]);
-        this.g.attr('transform', `translate(${newTranslateX}, ${newTranslateY})scale(${currentScale})`);
+        this.centerOnPosition(newTranslateX, newTranslateY);
+    }
+
+    private centerOnPosition(x:number, y:number, scale:number = this.zoom.scale()) {
+        this.svg.transition()
+            .duration(Graph.ZOOM_TRANSITION_DURATION)
+            .call(this.zoom.translate([x, y]).event);
+        this.g.attr('transform', `translate(${x}, ${y})scale(${scale})`);
     }
 }
